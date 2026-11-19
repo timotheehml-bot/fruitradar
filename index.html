@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#150b1d">
+<meta name="description" content="FruitRadar : l'extension Chrome qui repère les vidéos de fruits IA qui percent sur TikTok et fabrique la tienne, de l'idée au montage, jusqu'à la publication.">
+<title>FruitRadar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Lexend:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Page de liens. Le fond d'écran est un mur de scènes de la vidéo, qui défile lentement. Dessus : l'image d'accueil, l'accroche,
+     quatre captures de l'extension à faire défiler, deux cadres-images qui sont des liens, et le prix en dernier,
+     sur une carte claire (la seule surface claire de la page). Une seule couleur vive : la mangue de l'extension. */
+  :root {
+    --nuit: #150b1d;
+    --prune: #231530;
+    --creme: #f7efe8;
+    --brume: rgba(247, 239, 232, .74);
+    --trait: rgba(255, 255, 255, .13);
+    --mangue: #ffb21f;
+    --encre: #24130a;
+    --titre: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+    --corps: "Lexend", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 16px; }
+  body { margin: 0; min-height: 100vh; min-height: 100dvh; background: var(--nuit); color: var(--creme); font: 400 1rem/1.55 var(--corps); overflow-x: clip; }
+  img { display: block; max-width: 100%; height: auto; }
+  p, h1, h2, ul, figure { margin: 0; }
+  ul { padding: 0; list-style: none; }
+  button { font: inherit; color: inherit; }
+
+  /* le fond d'écran : un mur de scènes de la vidéo, en colonnes penchées qui défilent lentement, assombri pour laisser lire le texte.
+     Chaque colonne contient deux fois la même bande : glisser de la moitié de sa hauteur revient exactement au départ. */
+  .fond { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: var(--nuit); }
+  .mur { position: absolute; inset: -16% -30%; display: flex; gap: 12px; justify-content: center; transform: rotate(-8deg); }
+  .col { flex: 0 0 clamp(120px, 31vw, 184px); align-self: flex-start; display: flex; flex-direction: column; animation: monte 70s linear infinite; }
+  .col img { width: 100%; height: auto; }
+  .col:nth-child(even) { animation-name: descend; animation-duration: 84s; }
+  .col:nth-child(3n) { animation-duration: 96s; }
+  @keyframes monte { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+  @keyframes descend { from { transform: translateY(-50%); } to { transform: translateY(0); } }
+  .fond::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(21, 11, 29, .66), rgba(21, 11, 29, .8) 60%, rgba(21, 11, 29, .88)); }
+  @media (max-width: 700px) { .col:nth-child(n+6) { display: none; } }
+
+  .page { width: 100%; max-width: 472px; margin: 0 auto; padding: 16px 16px 34px; display: grid; gap: 26px; }
+  .page > * { min-width: 0; }
+
+  /* ----- l'image d'accueil ----- */
+  .affiche { position: relative; aspect-ratio: 576 / 720; border-radius: 30px; overflow: hidden; border: 1px solid var(--trait); background: var(--nuit); box-shadow: 0 34px 70px -34px rgba(0, 0, 0, .9); isolation: isolate; }
+  .affiche > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .affiche::after { content: ""; position: absolute; inset: 52% 0 0; background: linear-gradient(180deg, rgba(21, 11, 29, 0), rgba(21, 11, 29, .78) 58%, rgba(21, 11, 29, .96)); }
+  .affiche h1 { position: absolute; z-index: 1; left: 0; right: 0; bottom: 6.5%; padding: 0 16px; text-align: center; font: 800 clamp(2.5rem, 13.2vw, 3.6rem)/1 var(--titre); letter-spacing: -.035em; text-shadow: 0 2px 24px rgba(21, 11, 29, .7); }
+  .affiche h1 small { display: block; margin-bottom: 6px; font: 500 clamp(1rem, 4.6vw, 1.2rem)/1.2 var(--corps); letter-spacing: 0; color: var(--creme); opacity: .92; }
+
+  /* ----- les panneaux : un fond presque opaque sous chaque bloc de texte, pour lire sans effort par-dessus le mur ----- */
+  .panneau { background: rgba(24, 13, 34, .86); border: 1px solid var(--trait); border-radius: 26px; padding: 22px 16px 20px; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 26px 54px -32px rgba(0, 0, 0, .9); }
+
+  /* ----- l'accroche ----- */
+  .dit { text-align: center; }
+  .accroche { font: 700 clamp(1.5rem, 6.6vw, 1.85rem)/1.16 var(--titre); letter-spacing: -.02em; text-wrap: balance; }
+  .texte { margin: 12px auto 0; color: var(--creme); opacity: .9; font-size: 1.02rem; line-height: 1.5; max-width: 36ch; text-wrap: pretty; }
+
+  .chiffres { margin-top: 18px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .chiffres li { padding: 11px 4px 10px; border-radius: 14px; background: rgba(255, 255, 255, .06); border: 1px solid var(--trait); font-size: .74rem; line-height: 1.25; color: var(--creme); opacity: .95; text-align: center; }
+  .chiffres b { display: block; margin-bottom: 3px; font: 800 1.32rem/1.1 var(--titre); letter-spacing: -.02em; color: var(--mangue); white-space: nowrap; }
+  .appel { display: block; margin-top: 14px; padding: 14px 18px; border-radius: 14px; background: var(--mangue); color: var(--encre); font-weight: 600; text-align: center; text-decoration: none; transition: transform .2s, filter .2s; }
+  .appel:hover { filter: brightness(1.06); transform: translateY(-1px); }
+  .appel:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+  /* ----- les preuves : trois miniatures avec leurs vues, et la capture des récompenses ----- */
+  .affiches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .affiches figure { border-radius: 16px; overflow: hidden; border: 1px solid var(--trait); background: #1c1026; box-shadow: 0 20px 40px -26px rgba(0, 0, 0, .9); }
+  .affiches img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
+  .affiches figcaption { padding: 8px 4px 10px; text-align: center; font-size: .76rem; line-height: 1.2; color: var(--brume); }
+  .affiches figcaption b { display: block; font: 800 1.3rem/1.1 var(--titre); letter-spacing: -.02em; color: var(--creme); }
+  .gains { margin-top: 12px; border-radius: 18px; overflow: hidden; border: 1px solid var(--trait); background: #fff; box-shadow: 0 20px 40px -26px rgba(0, 0, 0, .9); }
+  .gains img { width: 100%; }
+  .gains figcaption { padding: 10px 14px 11px; text-align: center; font-size: .82rem; background: #1c1026; color: var(--brume); }
+  .preuves-note { margin-top: 10px; text-align: center; font-size: .78rem; color: var(--brume); text-shadow: 0 1px 12px rgba(21, 11, 29, .95); }
+
+  .deux { margin: 0 0 16px; display: grid; gap: 10px; }
+  .deux div { padding: 13px 14px 14px; border-radius: 16px; background: rgba(255, 255, 255, .06); border: 1px solid var(--trait); }
+  .deux dt { font: 700 1.05rem/1.2 var(--titre); color: var(--mangue); }
+  .deux dd { margin: 5px 0 0; font-size: .95rem; line-height: 1.5; color: var(--creme); opacity: .92; }
+
+  /* ----- les captures à faire défiler ----- */
+  .demo h2, .preuves h2 { font: 700 1.2rem/1.2 var(--titre); letter-spacing: -.01em; text-align: center; text-wrap: balance; margin-bottom: 14px; }
+  .defile { position: relative; display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 4px 16px 6px; scroll-padding: 0 16px; overscroll-behavior-x: contain; }
+  .defile::-webkit-scrollbar { display: none; }
+  .defile:focus-visible { outline: 2px solid var(--mangue); outline-offset: 2px; border-radius: 20px; }
+  .vue { flex: 0 0 86%; scroll-snap-align: center; display: flex; flex-direction: column; border-radius: 20px; overflow: hidden; border: 1px solid var(--trait); background: #1c1026; box-shadow: 0 22px 44px -28px rgba(0, 0, 0, .9); }
+  .vue img { width: 100%; aspect-ratio: 404 / 600; object-fit: cover; object-position: top; -webkit-mask-image: linear-gradient(180deg, #000 88%, transparent); mask-image: linear-gradient(180deg, #000 88%, transparent); }
+  .vue figcaption { padding: 4px 16px 16px; display: grid; gap: 4px; }
+  .vue figcaption strong { font: 700 1.08rem/1.2 var(--titre); }
+  .vue figcaption span { color: var(--creme); opacity: .85; font-size: .92rem; line-height: 1.45; }
+  .defile-bas { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 12px; }
+  .points { display: flex; gap: 2px; }
+  .points button { width: 26px; height: 26px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; border-radius: 50%; }
+  .points button::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: rgba(247, 239, 232, .32); transition: background .2s, width .2s; }
+  .points button.on::before { width: 20px; border-radius: 8px; background: var(--mangue); }
+  .fleche { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--trait); background: rgba(255, 255, 255, .07); cursor: pointer; display: grid; place-items: center; transition: background .2s, opacity .2s; }
+  .fleche svg { width: 18px; height: 18px; }
+  .fleche:hover { background: rgba(255, 255, 255, .14); }
+  .fleche:disabled { opacity: .35; cursor: default; }
+  .points button:focus-visible, .fleche:focus-visible { outline: 2px solid var(--mangue); outline-offset: 2px; }
+
+  /* ----- les deux liens : des cadres dessinés, tout le cadre est le lien. Skool en grand, Instagram avec la photo de profil ----- */
+  .cadre { position: relative; display: block; overflow: hidden; border-radius: 24px; border: 1px solid var(--trait); color: #fff; text-decoration: none; box-shadow: 0 24px 50px -30px rgba(0, 0, 0, .85); isolation: isolate; transition: border-color .2s, transform .25s cubic-bezier(.2, .7, .2, 1); }
+  .cadre .nom { display: grid; gap: 3px; }
+  .cadre .nom strong { font: 700 1.3rem/1.15 var(--titre); letter-spacing: -.015em; }
+  .cadre .nom small { font-size: .92rem; opacity: .92; }
+  .va { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; padding: 8px; border-radius: 50%; background: rgba(255, 255, 255, .18); }
+  /* la carte Skool reprend l'allure d'une fiche de communauté Skool : fond gris sombre, chiffres en ligne, bouton jaune */
+  .cadre.skool { padding: 22px 20px 20px; background: #1f2024; border-color: #3b3c42; display: grid; gap: 14px; }
+  .sk-haut { display: grid; gap: 2px; padding-right: 44px; }
+  .sk-haut strong { font: 800 1.55rem/1.15 var(--corps); letter-spacing: -.02em; }
+  .sk-haut small { font-size: .84rem; color: #909399; }
+  .sk-texte { font-size: .98rem; line-height: 1.45; color: #dcdde0; }
+  .sk-chiffres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 12px 0; border-top: 1px solid #3b3c42; border-bottom: 1px solid #3b3c42; text-align: center; font-size: .76rem; color: #909399; }
+  .sk-chiffres span + span { border-left: 1px solid #3b3c42; }
+  .sk-chiffres b { display: block; font: 700 1.15rem/1.3 var(--corps); color: #fff; }
+  .skool .va { background: rgba(255, 255, 255, .1); }
+  .bouton { display: block; padding: 13px 16px; border-radius: 10px; background: #f8d481; color: #202124; font-weight: 700; font-size: .9rem; text-align: center; text-transform: uppercase; letter-spacing: .04em; }
+  .cadre.insta { display: flex; align-items: center; gap: 14px; padding: 16px 62px 16px 16px; background: linear-gradient(135deg, #f2a03d, #e2456b 52%, #8a3ab9); }
+  .pp { flex: 0 0 60px; width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .22); border: 2px solid rgba(255, 255, 255, .7); font: 800 1.9rem/1 var(--titre); padding-bottom: 4px; }
+  .insta .va { top: 50%; margin-top: -17px; }
+  .cadre:hover { border-color: rgba(255, 255, 255, .6); transform: translateY(-2px); }
+  .cadre:focus-visible { outline: 2px solid var(--mangue); outline-offset: 3px; }
+  .cadre:active { transform: translateY(0) scale(.992); }
+
+  /* ----- le prix, en dernier ----- */
+  .tarif { background: var(--creme); color: var(--encre); border-radius: 26px; padding: 24px 22px 22px; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .9); }
+  .tarif-nom { font: 700 1.05rem/1.2 var(--titre); }
+  .tarif-prix { margin-top: 6px; display: flex; align-items: baseline; gap: 8px; }
+  .tarif-prix b { font: 800 clamp(2.5rem, 12vw, 3.1rem)/1 var(--titre); letter-spacing: -.04em; white-space: nowrap; }
+  .tarif-prix span { font-size: .95rem; color: rgba(36, 19, 10, .7); }
+  .tarif ul { margin-top: 16px; display: grid; gap: 9px; padding-top: 16px; border-top: 1px solid rgba(36, 19, 10, .14); }
+  .tarif li { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; font-size: .93rem; line-height: 1.4; }
+  .tarif li svg { width: 20px; height: 20px; margin-top: 1px; color: #b86a00; }
+  .tarif-etat { margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 13px 16px; border-radius: 14px; background: var(--mangue); font-weight: 600; }
+  .tarif-etat i { width: 8px; height: 8px; border-radius: 50%; background: var(--encre); box-shadow: 0 0 0 4px rgba(36, 19, 10, .16); }
+  .tarif-note { margin-top: 12px; font-size: .8rem; line-height: 1.45; color: rgba(36, 19, 10, .68); text-align: center; }
+
+  .pied { text-align: center; padding: 20px 16px 18px; border-radius: 22px; background: rgba(24, 13, 34, .86); border: 1px solid var(--trait); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); display: grid; gap: 8px; }
+  .pied-etat { font-size: .86rem; color: var(--creme); opacity: .92; }
+  .beta { display: inline-block; margin-right: 9px; padding: 3px 11px 4px; border-radius: 999px; background: var(--mangue); color: var(--encre); font: 700 .78rem/1.3 var(--titre); letter-spacing: .02em; vertical-align: 1px; }
+  .pied-nom { margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--trait); font: 500 1.02rem/1.3 var(--titre); }
+  .pied-nom strong { font-weight: 800; }
+  .pied-droits { font-size: .76rem; color: var(--brume); }
+
+  /* ----- ordinateur : l'image à gauche, qui reste en place, le reste à droite ----- */
+  @media (min-width: 980px) {
+    .page { max-width: none; grid-template-columns: 448px 440px; column-gap: 64px; row-gap: 30px; justify-content: center; align-items: start; padding: 52px 24px 56px; }
+    .page > * { grid-column: 2; }
+    .affiche { grid-column: 1; grid-row: 1 / span 8; position: sticky; top: 52px; }
+    .affiche h1 { font-size: 3.6rem; }
+    .dit { text-align: left; }
+    .accroche { font-size: 2.05rem; }
+    .texte { margin-inline: 0; max-width: 40ch; }
+    .demo h2, .preuves h2 { text-align: left; }
+    .preuves-note { text-align: left; }
+    .defile { margin: 0 -16px; padding: 4px 16px 6px; scroll-padding: 0 16px; }
+    .vue { flex-basis: 78%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .col { animation: none; }
+    html { scroll-behavior: auto; }
+    .cadre, .points button::before { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="fond" aria-hidden="true"><div class="mur"><div class="col"><img src="mur-1.jpg" alt=""><img src="mur-1.jpg" alt=""></div><div class="col"><img src="mur-2.jpg" alt=""><img src="mur-2.jpg" alt=""></div><div class="col"><img src="mur-3.jpg" alt=""><img src="mur-3.jpg" alt=""></div><div class="col"><img src="mur-4.jpg" alt=""><img src="mur-4.jpg" alt=""></div><div class="col"><img src="mur-5.jpg" alt=""><img src="mur-5.jpg" alt=""></div><div class="col"><img src="mur-6.jpg" alt=""><img src="mur-6.jpg" alt=""></div><div class="col"><img src="mur-7.jpg" alt=""><img src="mur-7.jpg" alt=""></div><div class="col"><img src="mur-8.jpg" alt=""><img src="mur-8.jpg" alt=""></div><div class="col"><img src="mur-1.jpg" alt=""><img src="mur-1.jpg" alt=""></div><div class="col"><img src="mur-2.jpg" alt=""><img src="mur-2.jpg" alt=""></div></div></div>
+
+<main class="page">
+  <header class="affiche">
+    <img src="accueil.jpg" width="1152" height="1440" alt="Deux personnages de fruits, un soir de fête sur un port : une grenade aux cheveux blancs lève les yeux vers un citron en uniforme de marin, qui la regarde.">
+    <h1><small>Bienvenue sur</small>FruitRadar</h1>
+  </header>
+
+  <section class="dit panneau">
+    <p class="accroche">Des millions de vues, en automatique.</p>
+    <p class="texte">Tu lances la vidéo, FruitRadar fait tout le reste. Elle arrive prête à publier dans TikTok, sans que tu interviennes.</p>
+    <ul class="chiffres" aria-label="Mes chiffres sur TikTok">
+      <li><b>73,7 K</b>abonnés TikTok</li>
+      <li><b>5,5 M</b>vues sur 3 vidéos</li>
+      <li><b>1 702 $</b>en 30 jours</li>
+    </ul>
+    <a class="appel" href="#prix">Voir l'offre FruitRadar</a>
+  </section>
+
+  <section class="preuves panneau">
+    <h2>Trois de mes vidéos, 5,5 millions de vues</h2>
+    <div class="affiches">
+      <figure><img src="preuve-1.jpg" width="540" height="720" alt="Miniature de ma vidéo « Le Secret de Grenadina, partie 1 », 2 millions de vues sur TikTok."><figcaption><b>2 M</b>de vues</figcaption></figure>
+      <figure><img src="preuve-2.jpg" width="540" height="720" alt="Miniature de ma vidéo « Le Secret de Grenadina, partie 2 », 2,4 millions de vues sur TikTok."><figcaption><b>2,4 M</b>de vues</figcaption></figure>
+      <figure><img src="preuve-3.jpg" width="540" height="720" alt="Miniature de ma vidéo « Le Secret des Grenadines, partie 3 », 1,1 million de vues sur TikTok."><figcaption><b>1,1 M</b>de vues</figcaption></figure>
+    </div>
+    <figure class="gains">
+      <img src="preuve-gains.jpg" width="1121" height="538" loading="lazy" alt="Capture de TikTok : récompenses estimées de 1 702,69 dollars du 19 octobre au 17 novembre 2026, dont 90,80 de récompense standard et 1 611,89 de récompense supplémentaire.">
+      <figcaption>Mes récompenses TikTok sur 30 jours, compte @fruitscandale24</figcaption>
+    </figure>
+    <p class="preuves-note">Ce sont mes chiffres, pas une garantie.</p>
+  </section>
+
+  <a class="cadre skool" href="https://www.skool.com/aicashfactory/about?ref=79fb98e86c4f4f8faab48283db5ac9ee" target="_blank" rel="noopener sponsored">
+    <span class="sk-haut"><strong>AI Cash Factory</strong><small>skool.com/aicashfactory</small></span>
+    <span class="sk-texte">Apprends à faire comme moi. C'est la communauté où ça se passe, sur Skool.</span>
+    <span class="sk-chiffres"><span><b>+800</b>Membres</span><span><b>5,0 ★</b>20 avis</span><span><b>29 $</b>par mois</span></span>
+    <span class="bouton">Rejoindre la communauté</span>
+    <svg class="va" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
+  </a>
+
+  <section class="demo panneau">
+    <h2>Ce que fait FruitRadar</h2>
+    <dl class="deux">
+      <div><dt>Le scan</dt><dd>Le Radar parcourt TikTok, repère les vidéos de fruits IA qui percent et leur donne une note sur 100. Tu sais quoi refaire.</dd></div>
+      <div><dt>L'automatisation</dt><dd>Tu choisis une vidéo ou une idée et tu cliques une fois. Script, images, clips, montage, publication : tout s'enchaîne, et tu peux tout régler.</dd></div>
+    </dl>
+    <div class="defile" id="defile" tabindex="0" role="group" aria-label="Captures de FruitRadar, à faire défiler">
+      <figure class="vue">
+        <img src="vue-radar.jpg" width="808" height="1200" alt="Capture de FruitRadar, le Radar : les vidéos classées par score viral, avec leur miniature, leur rang, leur note sur 100 et leurs vues.">
+        <figcaption><strong>Le Radar</strong><span>Chaque vidéo a son rang, sa note et ses vues. Un bouton suffit pour la refaire.</span></figcaption>
+      </figure>
+      <figure class="vue">
+        <img src="vue-auto.jpg" width="808" height="1200" loading="lazy" alt="Capture de FruitRadar, l'Automatisation : quatre départs possibles pour une vidéo, et la vidéo choisie à reproduire.">
+        <figcaption><strong>L'automatisation</strong><span>Quatre départs : une vidéo du Radar, ton idée, dix idées proposées, ou la suite d'une histoire.</span></figcaption>
+      </figure>
+      <figure class="vue">
+        <img src="vue-idees.jpg" width="808" height="1200" loading="lazy" alt="Capture de FruitRadar, « 10 idées proposées » : une histoire avec ses deux premières secondes, son résumé, ses personnages et le bouton pour la choisir.">
+        <figcaption><strong>Dix idées, quand tu n'en as pas</strong><span>Chaque idée arrive avec son accroche et ses personnages. Tu en choisis une, ça repart tout seul.</span></figcaption>
+      </figure>
+      <figure class="vue">
+        <img src="vue-suite.jpg" width="808" height="1200" loading="lazy" alt="Capture de FruitRadar, « Suite d'une histoire » : les parties déjà faites, avec leur miniature, pour continuer l'histoire.">
+        <figcaption><strong>Les suites, sans repartir de zéro</strong><span>Partie 2, 3, 4… avec les mêmes personnages, là où l'histoire s'est arrêtée.</span></figcaption>
+      </figure>
+    </div>
+    <div class="defile-bas">
+      <button class="fleche" type="button" data-pas="-1" aria-label="Capture précédente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="points" id="points">
+        <button type="button" class="on" aria-label="Capture 1 sur 4"></button><button type="button" aria-label="Capture 2 sur 4"></button><button type="button" aria-label="Capture 3 sur 4"></button><button type="button" aria-label="Capture 4 sur 4"></button>
+      </div>
+      <button class="fleche" type="button" data-pas="1" aria-label="Capture suivante"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+  </section>
+
+  <a class="cadre insta" href="https://www.instagram.com/timothee.hml" target="_blank" rel="noopener">
+    <span class="pp" aria-hidden="true">@</span>
+    <span class="nom"><strong>Rejoins-moi sur Instagram</strong><small>@timothee.hml</small></span>
+    <svg class="va" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
+  </a>
+
+  <section class="tarif" id="prix" aria-label="Le prix">
+    <p class="tarif-nom">FruitRadar</p>
+    <p class="tarif-prix"><b>25,99 €</b><span>par mois</span></p>
+    <ul>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>Le Radar : les vidéos de fruits IA qui percent sur TikTok</span></li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>L'automatisation : script, images, clips, montage, publication</span></li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>Les mises à jour, en un clic</span></li>
+    </ul>
+    <p class="tarif-etat"><i></i>Ouverture bientôt</p>
+    <p class="tarif-note">Extension Chrome, sur ordinateur. Elle travaille avec tes comptes Claude, ChatGPT, Grok et CapCut.</p>
+  </section>
+
+  <footer class="pied">
+    <p class="pied-etat"><span class="beta">Bêta</span>FruitRadar est en bêta : il s'améliore à chaque mise à jour.</p>
+    <p class="pied-nom">Une création de <strong>Timothée Hamel</strong></p>
+    <p class="pied-droits">© 2026 Timothée Hamel. Tous droits réservés.</p>
+  </footer>
+</main>
+
+<script>
+(function () {
+  var d = document.getElementById('defile'); if (!d) return;
+  var vues = Array.prototype.slice.call(d.querySelectorAll('.vue'));
+  var pts = Array.prototype.slice.call(document.querySelectorAll('#points button'));
+  var fl = Array.prototype.slice.call(document.querySelectorAll('.fleche'));
+  var doux = !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  function courant() {
+    var c = d.scrollLeft + d.clientWidth / 2, k = 0, min = Infinity;
+    vues.forEach(function (v, i) { var e = Math.abs(v.offsetLeft + v.offsetWidth / 2 - c); if (e < min) { min = e; k = i; } });
+    return k;
+  }
+  function peindre() {
+    var k = courant();
+    pts.forEach(function (p, i) { p.classList.toggle('on', i === k); if (i === k) p.setAttribute('aria-current', 'true'); else p.removeAttribute('aria-current'); });
+    fl.forEach(function (b) { b.disabled = b.dataset.pas === '-1' ? k === 0 : k === vues.length - 1; });
+  }
+  function aller(i) {
+    var v = vues[Math.max(0, Math.min(vues.length - 1, i))];
+    d.scrollTo({ left: v.offsetLeft - (d.clientWidth - v.offsetWidth) / 2, behavior: doux ? 'smooth' : 'auto' });
+  }
+  var t = 0;
+  d.addEventListener('scroll', function () { cancelAnimationFrame(t); t = requestAnimationFrame(peindre); }, { passive: true });
+  window.addEventListener('resize', peindre);
+  pts.forEach(function (p, i) { p.addEventListener('click', function () { aller(i); }); });
+  fl.forEach(function (b) { b.addEventListener('click', function () { aller(courant() + Number(b.dataset.pas)); }); });
+  d.addEventListener('keydown', function (e) { if (e.key === 'ArrowRight') { e.preventDefault(); aller(courant() + 1); } else if (e.key === 'ArrowLeft') { e.preventDefault(); aller(courant() - 1); } });
+  peindre();
+})();
+</script>
+</body>
+</html>
